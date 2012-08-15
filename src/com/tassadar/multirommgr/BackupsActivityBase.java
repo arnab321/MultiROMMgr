@@ -91,12 +91,16 @@ public class BackupsActivityBase extends ListActivity
             m_activePresent = false;
         else
             m_activePresent = true;
-
+        
+        if(list.contains("No such file or directory"))
+        	folder = null;
+        
         // Check backups
         folder = path + MULTIROM_BACK;
         list = MultiROMMgrActivity.runRootCommand("ls " + folder);
-        if(list == null || list.contains("No such file or directory"))
-            folder = null;
+        
+        if(list.equals("") || list.contains("No such file or directory"))
+            list = null;
         return new String[]{folder, list };
     }
     
@@ -125,7 +129,8 @@ public class BackupsActivityBase extends ListActivity
                 m_folder_backups = folder;
                 m_fillMaps = new ArrayList<HashMap<String, String>>();
                 
-                if(m_active_in_list)
+                
+                if(m_active_in_list && !getIntent().getBooleanExtra("choose_backup", false))
                 {
                     HashMap<String, String> map = new HashMap<String, String>();
                     map.put("title", getResources().getString(R.string.default_boot_sd_active));

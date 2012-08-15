@@ -2,6 +2,7 @@ package com.tassadar.multirommgr;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -23,9 +24,9 @@ public class BackupsSelectActivity extends BackupsActivityBase
             ShowToast(getResources().getString(R.string.backups_wait));
             return;
         }
-        
+
         String name = "";
-        if(position != 0)
+        if(getIntent().getBooleanExtra("choose_backup", false) || position != 0)
             name = (String) ((TextView)v.findViewById(R.id.title)).getText();
         
         Intent data = new Intent();

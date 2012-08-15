@@ -26,9 +26,8 @@ import android.widget.Toast;
 
 public class BMgrConf extends PreferenceActivity
 {
-    private static final String CONF_PATH = "/sdcard/multirom.txt";
-    private static final int REQ_ROM_NAME = 2;
-    
+    static final String CONF_PATH = "/sdcard/multirom.txt";
+    static final int REQ_ROM_NAME = 2;
     private static final int CHARGER_AUTO_START = 0x01;
     private static final int CHARGER_DISABLE_LG = 0x02;
 
@@ -37,16 +36,7 @@ public class BMgrConf extends PreferenceActivity
     {
         super.onCreate(savedInstanceState);  
         
-        // Default values
-        //timezone = 0;
-        timeout = 3;
-        touch_ui = true;
-        show_seconds = false;
-        brightness = 100;
-        default_boot = 0;
-        default_boot_sd = "";
-        charger_settings = (CHARGER_AUTO_START | CHARGER_DISABLE_LG);
-        
+        setDefaults();
         addPreferencesFromResource(R.xml.bmgr_config);
         m_tetris_max = (TetrisMaxPreference)findPreference("tetris_max");
         m_tetris_max.setHandler(m_confLoaded);
@@ -60,6 +50,18 @@ public class BMgrConf extends PreferenceActivity
         
         Preference sdRom = (Preference)findPreference("conf_default_boot_sd");
         sdRom.setOnPreferenceClickListener(m_on_sd_rom_click);
+    }
+    
+    public static void setDefaults(){
+        // Default values
+        timezone = 0;
+        timeout = 3;
+        touch_ui = true;
+        show_seconds = false;
+        brightness = 100;
+        default_boot = 0;
+        default_boot_sd = "";
+        charger_settings = (CHARGER_AUTO_START | CHARGER_DISABLE_LG);
     }
     
     @Override
@@ -337,14 +339,14 @@ public class BMgrConf extends PreferenceActivity
         }
     };
 
-    private float timezone;
-    private byte timeout;
-    private boolean touch_ui;
-    private boolean show_seconds;
-    private int tetris_max_score;
-    private byte brightness;
-    private byte default_boot;
-    private String default_boot_sd;
-    private int charger_settings;
+     static float timezone;
+     static byte timeout;
+     static boolean touch_ui;
+     static boolean show_seconds;
+     static int tetris_max_score;
+     static byte brightness;
+     static byte default_boot;
+     static String default_boot_sd;
+     static int charger_settings;
     private TetrisMaxPreference m_tetris_max;
 }

@@ -69,15 +69,27 @@ public class MultiROMMgrActivity extends ListActivity
         switch(position)
         {
             case 0: startActivity(new Intent(this, BMgrConf.class));        break;
-            case 1: startActivity(new Intent(this, BackupsActivity.class)); break;
-            case 2: startActivityForResult(new Intent(this, Updater.class), REQ_UPDATER); break;
-            case 3: 
-            {
+            case 2: startActivity(new Intent(this, BackupsActivity.class)); break;
+            case 3: startActivityForResult(new Intent(this, Updater.class), REQ_UPDATER); break;
+            case 4: 
+
                 Intent mktIntent = new Intent(Intent.ACTION_VIEW);
                 mktIntent.setData(Uri.parse(XDA));
                 startActivity(mktIntent);
                 break;
-            }
+            
+                
+                
+                
+            
+            case 1: 
+            	startActivity( new Intent(this, Updater.class)
+            		.putExtra("custom", true));
+            	 
+
+                
+            	break;
+            
         }
     }
     
@@ -191,6 +203,7 @@ public class MultiROMMgrActivity extends ListActivity
                         m_loadingHandler.obtainMessage(LOADING_ROOT,
                                 (rootTest == null || !rootTest.equals("test")) ? 0 : 1, 0));
                 
+                
             }
           }).start();
     }
@@ -287,12 +300,13 @@ public class MultiROMMgrActivity extends ListActivity
             image = new int[]
             {
                 R.drawable.ic_menu_preferences,
+                R.drawable.ic_menu_info_details,
                 R.drawable.rom_backup,
                 R.drawable.rom_update,
                 R.drawable.ic_menu_info_details
             };
             // set version
-            title[2] = title[2] + " " + m_version;
+            title[3] += " " + m_version;
         }
         else
         {

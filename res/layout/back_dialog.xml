@@ -8,14 +8,12 @@
     <EditText android:id="@+id/text" 
               android:layout_width="fill_parent" 
               android:layout_height="wrap_content" 
-              android:background="@android:drawable/editbox_background"
               android:text=""
               android:singleLine="true" />  
     <EditText android:id="@+id/text_orig" 
               android:visibility="gone"
               android:layout_width="0px" 
               android:layout_height="0px" 
-              android:background="@android:drawable/editbox_background"
               android:text=""
               android:editable="false"
               android:singleLine="true" />      

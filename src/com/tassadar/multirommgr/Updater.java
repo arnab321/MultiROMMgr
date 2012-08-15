@@ -4,19 +4,24 @@ import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.apache.http.util.ByteArrayBuffer;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -27,11 +32,17 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.View.OnKeyListener;
 import android.view.Window;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -45,7 +56,11 @@ public class Updater extends Activity
     private static final String RECOVERY_LOC = MultiROMMgrActivity.BASE + "recovery.img";
     private static final String RECOVERY_OLD_LOC = MultiROMMgrActivity.BASE + "recovery_old.img";
     private static final int PACKAGE_SIZE = 1024*1024; 
-    private static final int RECOVERY_SIZE = 8*1024*1024; 
+    private static final int RECOVERY_SIZE = 8*1024*1024;
+    private final String BACKUP_PATH="/sdcard/multirom/";
+    private final String BOOT_IMG_PATH="/dev/mtd/mtd0";
+    private int default_boot=0;
+    private String lastSelect="";
     
     private static final Device DEVICE[] =
     {
@@ -81,8 +96,17 @@ public class Updater extends Activity
         m_updating = false;
         con = this;
         m_updated = false;
-        setDevice();
-        GetVersion(true);
+        
+        if (getIntent().getBooleanExtra("custom", false)){
+        	((Button)findViewById(R.id.update_button)).setVisibility(View.GONE);
+        	setProgressBarIndeterminateVisibility(false);
+	        dialog();
+        }
+        else {
+        	
+        	setDevice();
+	        GetVersion(true);
+        }
     }
     
     @Override
@@ -222,6 +246,7 @@ public class Updater extends Activity
     private void TryUpdate()
     {
         m_updating = true;
+        Btn(R.id.exit,false); Btn(R.id.reboot,false);
         setProgressBarIndeterminateVisibility(true);
         m_recovery = -1;
         
@@ -337,14 +362,7 @@ public class Updater extends Activity
                 m_status.sendEmptyMessage(5);
             }
 
-            private void CleanUp()
-            {
-                MultiROMMgrActivity.runRootCommand("umount /tmp");
-                MultiROMMgrActivity.runRootCommand("rm -r /tmp");
-                MultiROMMgrActivity.runRootCommand("mount -o remount,ro rootfs /");
-                MultiROMMgrActivity.runRootCommand("rm " + DOWNLOAD_LOC + UPDATE_PACKAGE);
-                MultiROMMgrActivity.runRootCommand("rm -r " + UPDATE_FOLDER);
-            }
+
 
             private void CleanRecovery()
             {
@@ -353,7 +371,14 @@ public class Updater extends Activity
             }
         }).start();
     }
-    
+      private void CleanUp()
+            {
+                MultiROMMgrActivity.runRootCommand("umount /tmp");
+                MultiROMMgrActivity.runRootCommand("rm -r /tmp");
+                MultiROMMgrActivity.runRootCommand("mount -o remount,ro rootfs /");
+                MultiROMMgrActivity.runRootCommand("rm " + DOWNLOAD_LOC + UPDATE_PACKAGE);
+                MultiROMMgrActivity.runRootCommand("rm -r " + UPDATE_FOLDER);
+            }
     private boolean DownloadManifest()
     {
         String manifest = "";
@@ -489,7 +514,9 @@ public class Updater extends Activity
                 case 8:  SetStatus(getResources().getString(R.string.exec_package));  off=false; break;
                 case 12: SetStatus(getResources().getString(R.string.rec_down));      off=false; break;
                 case 13: SetStatus(getResources().getString(R.string.rec_flash));     off=false; break;
-                case 17: SetStatus(getResources().getString(R.string.app_check));     off=false; break;
+                case 17: SetStatus(getResources().getString(R.string.app_check));     off=false; 
+                	Btn(R.id.exit,false); Btn(R.id.reboot,false);
+                break;
             
                 case 2:  SetStatus(getResources().getString(R.string.down_manifest_error)); break;
                 case 3:  SetStatus(getResources().getString(R.string.down_pack_error));     break;
@@ -550,6 +577,14 @@ public class Updater extends Activity
                     builder.create().show();
                     break;
                 }
+                case 99:
+                	SetStatus(msg.getData().getString("msg"));
+                	((ScrollView)findViewById(R.id.scrollView1)).scrollBy(0, 300);
+                	off=false;
+                	break;
+                case 101:
+                	chooseBootLocation();
+                
             }
             if(off)
             {
@@ -560,10 +595,371 @@ public class Updater extends Activity
                 }
                 m_updating = false;
                 setProgressBarIndeterminateVisibility(false);
+                Btn(R.id.exit,true); Btn(R.id.reboot,true);
             }
         }
+
     };
     
+    // -----------------------------------------------------------------------
+    
+    void dialog(){
+        
+    		final Dialog dialog = new Dialog(this);
+    		dialog.setContentView(R.layout.imgs);
+    		dialog.setTitle("Restore boot image");
+    		dialog.setCanceledOnTouchOutside(true);
+    		dialog.setOnCancelListener(new DialogInterface.OnCancelListener(){
+
+				@Override
+				public void onCancel(DialogInterface arg0) {
+					finish();
+				}
+    			
+    		});
+    		ListView lv=(ListView) dialog.findViewById(R.id.listimg);
+    		
+    		File f = new File(BACKUP_PATH);
+    		boolean success = false;
+    		if (!f.exists()) {
+    		    success = f.mkdir();
+    		
+	    		if (success) {
+	    		    Toast.makeText(getApplicationContext(), "Folder "+BACKUP_PATH+" created", Toast.LENGTH_LONG).show();
+	    		} else  {
+	    			Toast.makeText(getApplicationContext(), "Couldn't create folder. Exiting.", Toast.LENGTH_LONG).show();
+	    			finish();
+	    			return;
+	    			}
+    		}
+    	     File[] files = f.listFiles();
+    	     ArrayList<String> item = new ArrayList<String>();
+
+    	     
+    	     for(int i=0; i < files.length; i++)
+    	     {
+    	      
+    	      if(files[i].canRead() && !files[i].isDirectory())
+    	           item.add(files[i].getName());
+    	     }
+
+    	     f=null;files=null;
+    	     
+    	     
+    	     ArrayAdapter<String> fileList =
+    	       new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, item);
+    	     lv.setAdapter(fileList); 
+
+    	    lv.setOnItemClickListener(new AdapterView.OnItemClickListener(){
+
+				@Override
+				public void onItemClick(AdapterView<?> arg0, View arg1,
+						int arg2, long arg3) {
+					String now=(String)arg0.getAdapter().getItem(arg2);
+					if(lastSelect.equals(now)){
+						dialog.dismiss();
+						customFlash(now,false);
+					}
+					else
+						Toast.makeText(getApplicationContext(), "Tap again to confirm", Toast.LENGTH_SHORT).show();						
+
+					lastSelect=now;
+					
+				}
+    	    	
+    	    });
+    	     
+    	     
+    	     final View bn=dialog.findViewById(R.id.bakupName);
+    	     bn.setOnKeyListener(new OnKeyListener(){
+
+				@Override
+				public boolean onKey(View et, int keycode, KeyEvent ev) {
+					
+					if (ev.getAction() == KeyEvent.ACTION_DOWN && keycode==KeyEvent.KEYCODE_ENTER){
+						String fn=((TextView)et).getText().toString();
+						dialog.dismiss();
+						customFlash(fn.endsWith(".img")?fn:fn+".img",true);
+					}
+
+
+					return false;
+				}
+    	    	 
+    	     });
+
+    		
+
+    		Button back = (Button) dialog.findViewById(R.id.back);
+    		// if button is clicked, close the custom dialog
+    		back.setOnClickListener(new OnClickListener() {
+    			@Override
+    			public void onClick(View v) {
+    				dialog.dismiss();
+    				finish();
+    			}
+    		});
+    		
+    		Button bakup = (Button) dialog.findViewById(R.id.bakup);
+    		bakup.setOnClickListener(new OnClickListener(){
+
+				@Override
+				public void onClick(View arg0) {
+				dialog.findViewById(R.id.bakup).setVisibility(View.GONE);
+				dialog.findViewById(R.id.back).setVisibility(View.GONE);
+				
+				bn.setVisibility(View.VISIBLE);
+				bn.requestFocus();
+				
+				
+					
+				}
+    			
+    		});
+    		
+    		dialog.show();
+    }
+    
+   private void customFlash(final String path, final boolean backup){
+	   
+	   Btn(R.id.exit,false); Btn(R.id.reboot,false);
+	   m_updating = true;
+	   setProgressBarIndeterminateVisibility(true);
+    	 new Thread(new Runnable() {
+    		 
+    		 boolean attempt(String cmd){
+    			 boolean suc=false;
+    			 Log.i("scr",cmd);
+    			 System.gc();
+    			 for (int i=1;i<=2;i++){
+
+    				 msg("Attempt "+i+": ");
+    				 String res=MultiROMMgrActivity.runRootCommand(cmd);
+    				 Log.e("scr"+i, res);
+    				 
+    				 if (res==null || res=="")
+    					  res="Success";
+    				 else {
+    					 if(res.length()>88)
+    						 res=res.substring(0, 87)+"...";
+    				 }
+    				 msg(res);
+    				 
+    				
+    				 if (res.equals("Success")){
+    					 suc=true;
+    					 break;
+    					 }
+    			 }
+    			 return suc;
+    		 }
+    		 
+             public void run() {
+            	 
+                 PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                 m_lock = pm.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK, "MultiROM updater WakeLock");
+                 m_lock.acquire();
+                 
+                 
+                 
+                boolean suc=false;
+                /*
+                if(!backup){
+                	File file=new File(BACKUP_PATH+path);
+                    if(file.canRead() && file.length()==4456448)
+                        suc=true;
+                    
+                }
+                	*/
+                
+                
+            	  MultiROMMgrActivity.runRootCommand("chmod 777 " + MultiROMMgrActivity.BASE + "*_image");
+
+                  suc=attempt(MultiROMMgrActivity.BASE +
+                		  (backup?"dump_image boot \"" :"flash_image boot \"")
+                		  +BACKUP_PATH+path+"\"");
+                  /*
+                  
+                if((!backup && suc) || backup){
+                  String res= MultiROMMgrActivity.runRootCommand("dd if=" +
+                		 (backup?BOOT_IMG_PATH+ " of=\""+BACKUP_PATH+path+"\"":
+                			 "\""+BACKUP_PATH+path+"\" of="+BOOT_IMG_PATH)+
+                		  " bs=4096");
+                  
+                  msg(res);
+                  msg("\""+BACKUP_PATH+path+"\" of="+BOOT_IMG_PATH+ " bs=4096");
+                  suc=res.contains("4456448 bytes transferred");
+                  
+                }
+                  */
+                  m_status.sendEmptyMessage(100); //release wakelock
+                  
+
+                  if (suc){
+                	  msg("Done!");
+                	  if(!backup)
+                		  m_status.sendEmptyMessage(101); //show chooseBootLocation()
+                  }else{
+                	  msg("Failed! \n If it was a valid boot image, Free up some RAM(>160MB) and try again.");
+                	  if(backup)
+                		  MultiROMMgrActivity.runRootCommand("rm  \""+BACKUP_PATH+path+"\"");
+                  }
+                  
+             }}).start();
+             
+
+    }
+   
+   void msg(String s){
+	   Message m=Message.obtain(m_status);
+	   Bundle b=new Bundle();
+	   b.putString("msg", s);
+	   m.setData(b);
+	   m.what=99;
+	   m.sendToTarget();
+   }
+   //buttons
+   	public void rebootB(View v){
+   		MultiROMMgrActivity.runRootCommand("sync");
+   		MultiROMMgrActivity.runRootCommand("reboot");
+   	}
+   	
+   	public void exitB(View v){
+   		finish();
+   	}
+   	
+    private void Btn(int res,boolean enable)
+    {
+        Button b = (Button)findViewById(res);
+        b.setEnabled(enable);
+        b.setClickable(enable);
+    }
+    
+    //default boot
+    
+    private void chooseBootLocation()
+    {
+		BMgrConf.setDefaults();
+       try {
+                  final FileInputStream file = new FileInputStream(BMgrConf.CONF_PATH);
+                    if(file != null)
+                    {
+
+                        BufferedReader buffreader = new BufferedReader(new InputStreamReader(file));
+                        
+                        String line,split[];
+                        setting=new HashMap<String,String>();
+                        
+                        while(((line = buffreader.readLine()) != null))
+                        {
+                            line = line.replaceAll(" ", "");
+                            
+                            split = line.split("=");
+                            if(split.length !=2)
+                                continue;
+                            
+                            setting.put(split[0],split[1]);
+                            
+                             
+                        }
+                        
+                        if(setting.get("default_boot")==null || setting.get("default_boot").equals("0"))
+                        	default_boot=0;
+                        
+                        else if (setting.get("default_boot_sd")==null || 
+                        	setting.get("default_boot_sd").equals(BMgrConf.default_boot_sd) ||
+                        	setting.get("default_boot_sd").equals("\"\""))
+                        	 default_boot= 1; 
+                        else 
+                        	default_boot= 2; 
+                        
+
+
+                    }
+       }catch(IOException e){
+    	   msg("Error reading "+BMgrConf.CONF_PATH+"\nIs your SDcard mounted?");
+    	   return;
+       }
+       
+       CharSequence[] options = { "Internal", "SDcard (main ROM)", "SDcard (Backup ROM)"};
+
+
+	new AlertDialog.Builder( this )
+       .setTitle( "Choose default boot location" )
+       .setSingleChoiceItems(options, default_boot, new DialogInterface.OnClickListener(){
+       
+		@Override
+		public void onClick(DialogInterface d, int choice) {
+			
+			if (choice==2){
+				Intent ii=new Intent(getBaseContext(), BackupsSelectActivity.class);
+				ii.putExtra("choose_backup", true);
+				startActivityForResult(ii, BMgrConf.REQ_ROM_NAME);
+			}else if(choice!=default_boot){
+			
+				Updater.this.write_settings(choice,null);
+			}
+	            d.dismiss();
+		}
+    	   
+       })
+       .setNegativeButton("Don't Change", new DialogInterface.OnClickListener(){
+		@Override
+		public void onClick(DialogInterface dialog, int which) {}
+       }
+    	 )
+       .show();
+
+    }
+    
+    protected void write_settings(int choice, String rom) {
+    	
+    	setting.put("default_boot", choice+"");
+    	setting.put("default_boot_sd", rom);
+
+		String text=
+        "timezone = " + val("timezone",(int)BMgrConf.timezone)+
+        "timeout = " +  val("timeout",BMgrConf.timeout)+
+        "show_seconds = " + val("show_seconds",BMgrConf.show_seconds?1:0)+
+        "touch_ui = " + val("touch_ui",BMgrConf.touch_ui?1:0) +
+        "tetris_max_score = " + val("tetris_max_score",BMgrConf.tetris_max_score)+
+        "brightness = " + val("brightness",BMgrConf.brightness)+
+        "default_boot = " + val("default_boot",BMgrConf.default_boot)+
+        "default_boot_sd = " + val("default_boot_sd", BMgrConf.default_boot_sd)+
+        "charger_settings = " + val("charger_settings",BMgrConf.charger_settings);
+		
+		try {
+            	FileWriter w = new FileWriter(BMgrConf.CONF_PATH, false);
+				w.write(text);
+				w.close();
+            } catch (IOException e) {
+            	msg("Error writing to "+BMgrConf.CONF_PATH+"\nIs your SDcard mounted?");
+	}
+	
+	}
+    
+    private String val(String k,String def){
+    	String s=setting.get(k);
+    	return (s==null?def:s)+ "\r\n";	
+    }
+    
+    private String val(String k,int def){
+    	return val(k,def+"");
+    }
+
+	@Override
+    protected void onActivityResult (int requestCode, int resultCode, Intent data)
+    {
+        if(requestCode == BMgrConf.REQ_ROM_NAME){
+        	if(resultCode == RESULT_OK)
+        		write_settings(1,data.getStringExtra("name"));
+        	else
+        		chooseBootLocation();
+        }
+        
+    }    
+	
+	private HashMap<String,String> setting;
     private String manifest_version;
     private String manifest_md5;
     private boolean m_updating;
