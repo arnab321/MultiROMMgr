@@ -103,9 +103,10 @@ public class Updater extends Activity
         m_updated = false;
         opt=getIntent().getIntExtra("tmp_boot_img", 99);
         
-        if(opt!=UPD_DEFAULT_WAY)
+        if(opt!=UPD_DEFAULT_WAY){
+        	setTitle("Embedding multirom");
         	((Button)findViewById(R.id.reboot)).setVisibility(View.GONE);
-        
+        }
         if (getIntent().getBooleanExtra("custom", false) || opt==UPD_SDCARD){
         	((Button)findViewById(R.id.update_button)).setVisibility(View.GONE);
         	setProgressBarIndeterminateVisibility(false);
