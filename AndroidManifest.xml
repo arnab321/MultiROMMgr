@@ -38,6 +38,10 @@
                   android:configChanges="orientation"
                   android:label="@string/updater">
         </activity>
+        <activity android:name=".ZipActivity"
+                  android:configChanges="orientation"
+                  android:label="@string/updater">
+        </activity>
         <activity android:name="BackupsSelectActivity" android:label="@string/app_name" android:configChanges="orientation"></activity>
     </application>
 

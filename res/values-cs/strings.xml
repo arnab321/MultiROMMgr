@@ -94,6 +94,7 @@
 
     <string-array name="backup_options">
         <item>Přehodit s aktivní</item>
+        <item>Přechod na záložní</item>
         <item>Smazat</item>
     </string-array>
 
@@ -106,13 +107,15 @@
     <string-array name="list_titles_installed">
         <item>Nastavení Boot manažeru</item>
         <item>obnovit/zálohování boot.img</item>
+        <item>Připravte zip</item>
         <item>Spravovat zálohy</item>
         <item>MultiROM</item>
         <item>Info &amp; changelog</item>
     </string-array>
     <string-array name="list_summaries_installed">
         <item>Nastavení časového pásma, prodlevy a dalších věcí</item>
-        <item>v3</item>
+        <item>v4.2</item>
+        <item>Použijte k instalaci nové ROM na SD kartu</item>
         <item>Zálohy můžete smazat, přejmenovat a přesunout do aktivní složky</item>
         <item>Zkontrolovat aktualizace</item>
         <item>Přejít na topic na XDA</item>

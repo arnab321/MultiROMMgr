@@ -20,8 +20,8 @@ import android.widget.Toast;
 
 public class BackupsActivityBase extends ListActivity
 {
-    private static final String MULTIROM_BACK = "/multirom/backup/";
-    private static final String MULTIROM_MAIN = "/multirom/rom";
+	protected static final String MULTIROM_BACK = "/multirom/backup/";
+    protected static final String MULTIROM_MAIN = "/multirom/rom";
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -134,7 +134,13 @@ public class BackupsActivityBase extends ListActivity
                 {
                     HashMap<String, String> map = new HashMap<String, String>();
                     map.put("title", getResources().getString(R.string.default_boot_sd_active));
-                    map.put("summary", "");
+                    
+                    String sum = MultiROMMgrActivity.runRootCommand("du -h -d0 " + m_folder_main);
+                    
+                    sum = getResources().getString(R.string.size) +" " +
+                        (sum == null|| sum.contains("such file or directory")?"N/A":sum.split("\t")[0]);
+                    
+                    map.put("summary", sum);
                     m_fillMaps.add(0, map);
                 }
 
@@ -150,7 +156,7 @@ public class BackupsActivityBase extends ListActivity
                 {
                     String sum = MultiROMMgrActivity.runRootCommand("du -h -d0 " + folder + m_rom_list[i]);
                     if(sum == null)
-                        sum = getResources().getString(R.string.size) + " N/A M";
+                        sum = getResources().getString(R.string.size) + " N/A";
                     else
                         sum = getResources().getString(R.string.size) + " " + sum.split("\t")[0];
                     HashMap<String, String> map = new HashMap<String, String>();

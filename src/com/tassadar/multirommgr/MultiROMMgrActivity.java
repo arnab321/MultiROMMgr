@@ -13,14 +13,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ListActivity;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.content.res.AssetManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -44,6 +47,7 @@ public class MultiROMMgrActivity extends ListActivity
     private static final int LOADING_ROOT = 1;
     private static final int LOADING_MR   = 2;
     private static final int REQ_UPDATER  = 1;
+    static final int FILE_SELECT_CODE = 45;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -51,7 +55,6 @@ public class MultiROMMgrActivity extends ListActivity
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.main);
-        
         m_version = getResources().getString(R.string.unknown_version);
         m_installed = true;
         MD5 = new String[0][0];
@@ -69,13 +72,14 @@ public class MultiROMMgrActivity extends ListActivity
         switch(position)
         {
             case 0: startActivity(new Intent(this, BMgrConf.class));        break;
-            case 2: startActivity(new Intent(this, BackupsActivity.class)); break;
-            case 3: startActivityForResult(new Intent(this, Updater.class), REQ_UPDATER); break;
-            case 4: 
+            case 3: startActivity(new Intent(this, BackupsActivity.class)); break;
+            case 4: startActivityForResult(new Intent(this, Updater.class), REQ_UPDATER); break;
+            case 5: 
 
                 Intent mktIntent = new Intent(Intent.ACTION_VIEW);
                 mktIntent.setData(Uri.parse(XDA));
                 startActivity(mktIntent);
+
                 break;
             
                 
@@ -83,12 +87,11 @@ public class MultiROMMgrActivity extends ListActivity
                 
             
             case 1: 
-            	startActivity( new Intent(this, Updater.class)
-            		.putExtra("custom", true));
-            	 
-
-                
+            	startActivity( new Intent(this, Updater.class).putExtra("custom", true));
             	break;
+            case 2: 
+            	showFileChooser("Select your flashable zip",this);
+            	break;	
             
         }
     }
@@ -100,6 +103,20 @@ public class MultiROMMgrActivity extends ListActivity
         {
             setLoadingDialog(getResources().getString(R.string.check_multirom));
             checkForMultiROM();
+        }
+        else if (requestCode == FILE_SELECT_CODE && resultCode == RESULT_OK){
+            Uri uri = data.getData();
+            Log.i("url",uri.getScheme()+" "+uri.getPath());
+            
+            String path ="";
+            if ("file".equalsIgnoreCase(uri.getScheme()) || "content".equalsIgnoreCase(uri.getScheme()))
+                path= uri.getPath();
+
+            else return;
+                Intent i = new Intent(this,ZipActivity.class);
+                i.putExtra("path", path);
+                startActivity(i);
+
         }
     }
     
@@ -300,13 +317,14 @@ public class MultiROMMgrActivity extends ListActivity
             image = new int[]
             {
                 R.drawable.ic_menu_preferences,
-                R.drawable.ic_menu_info_details,
+                android.R.drawable.btn_star_big_off,
+                android.R.drawable.btn_star_big_off,
                 R.drawable.rom_backup,
                 R.drawable.rom_update,
                 R.drawable.ic_menu_info_details
             };
             // set version
-            title[3] += " " + m_version;
+            title[4] += " " + m_version;
         }
         else
         {
@@ -490,7 +508,19 @@ public class MultiROMMgrActivity extends ListActivity
             }
         }
     }
-    
+    public static void showFileChooser(String title,Activity a) {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("application/zip");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+
+        try {
+            a.startActivityForResult(Intent.createChooser(intent, title),FILE_SELECT_CODE);
+        } catch (android.content.ActivityNotFoundException ex) {
+            // Potentially direct the user to the Market with a Dialog
+           Toast.makeText(a, "Please install a File Manager.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     public static String getVersion(boolean recheck)
     {
         if(recheck)

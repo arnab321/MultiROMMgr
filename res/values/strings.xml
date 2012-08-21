@@ -46,7 +46,7 @@
     <string name="down_manifest_error">Couldn\'t download manifest!</string>
     <string name="down_pack_error">Couldn\'t download package!</string>
     <string name="decompress">Decompressing package</string>
-    <string name="update_complete">Update complete! You should reboot your phone</string>
+    <string name="update_complete">Update complete!</string>
     <string name="mktmp_fail">Couldn\'t create /tmp folder!</string>
     <string name="flash_fail">Couldn\'t flash new boot img, recovering old one!</string>
     <string name="exec_package">Executing update script</string>
@@ -91,9 +91,28 @@
     <string name="charger_auto_sum">Shows charger screen instead of boot manager\'s main menu when the phone is turned on by plugging-in the USB cable</string>
     <string name="charger_lg">Disable LG\'s charger screen</string>
     <string name="charger_lg_sum">Disables LG\'s charger screen, which normally appears when the phone is turned on by plugging in the USB cable</string>
+   
+    <string name="mod_unmount_script">unmount(\"/system\");unmount(\"/data\");unmount(\"/cache\");\n</string>
+    <string name="mod_header_script">
+\n
+assert(is_mounted(\"/sd-ext\"));\n
+run_program(\"/sbin/busybox\", \"mkdir\", \"/sd-ext/multirom\");\n
+run_program(\"/sbin/busybox\", \"mkdir\", \"/sd-ext/multirom/rom\");\n
+run_program(\"/sbin/busybox\", \"mkdir\", \"/sd-ext/multirom/rom/system\");\n
+run_program(\"/sbin/busybox\", \"mkdir\", \"/sd-ext/multirom/rom/data\");\n
+run_program(\"/sbin/busybox\", \"mkdir\", \"/sd-ext/multirom/rom/cache\");\n
+\n
+run_program(\"/sbin/busybox\",\"mount\", \"-o\", \"bind\", \"/sd-ext/multirom/rom/system\", \"/system\");\n
+run_program(\"/sbin/busybox\",\"mount\", \"-o\", \"bind\", \"/sd-ext/multirom/rom/data\", \"/data\");\n
+run_program(\"/sbin/busybox\",\"mount\", \"-o\", \"bind\", \"/sd-ext/multirom/rom/cache\", \"/cache\");\n
+\n
+# END OF MULTIROM MOD ---\n\n
+</string>
+    
     
     <string-array name="backup_options">
         <item>Switch with active</item>
+        <item>Move to backup</item>
         <item>Erase</item>
     </string-array>
     
@@ -106,14 +125,16 @@
     <string-array name="list_titles_installed">
         <item>Configure Boot Manager</item>
         <item>Flash/backup boot.img</item>
-        <item>Manage backups</item>
+        <item>Prepare zip for flashing</item>
+        <item>Manage ROMs on SD</item>
         <item>MultiROM</item>
         <item>Info &amp; changelog</item>
     </string-array>
     <string-array name="list_summaries_installed">
         <item>Set timezone, default timeout and more</item>
-        <item>v3</item>
-        <item>You can rename, delete and move backups</item>
+        <item>v4.2</item>
+        <item>Use this to flash new a ROM directly to sdcard</item>
+        <item>You can rename, delete and move ROMs</item>
         <item>Tap to check for update</item>
         <item>Tap to enter XDA thread</item>
     </string-array>

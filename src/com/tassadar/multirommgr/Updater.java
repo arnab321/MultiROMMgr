@@ -51,15 +51,20 @@ public class Updater extends Activity
     private static final String LINK_APP_VER = "http://dl.dropbox.com/u/54372958/mgr_ver.txt";
     private static final String UPDATE_PACKAGE = "multirom.zip";
     private static final String FILE_VERSIONS = MultiROMMgrActivity.BASE + "/multirom_ver.txt";
-    private static final String DOWNLOAD_LOC = MultiROMMgrActivity.BASE;
+    //private static final String DOWNLOAD_LOC = MultiROMMgrActivity.BASE;
     private static final String UPDATE_FOLDER = MultiROMMgrActivity.BASE + "multirom/";
     private static final String RECOVERY_LOC = MultiROMMgrActivity.BASE + "recovery.img";
     private static final String RECOVERY_OLD_LOC = MultiROMMgrActivity.BASE + "recovery_old.img";
-    private static final int PACKAGE_SIZE = 1024*1024; 
-    private static final int RECOVERY_SIZE = 8*1024*1024;
-    private final String BACKUP_PATH="/sdcard/multirom/";
+    private static final int PACKAGE_SIZE = 1024*1024,
+    RECOVERY_SIZE = 8*1024*1024,
+    UPD_DEFAULT_WAY=99,UPD_SDCARD=0,UPD_INTERNET=1;
+    private int opt=UPD_DEFAULT_WAY; // 0=from sdcard, 1= internet, 99=default
+    public final static String BACKUP_PATH="/sdcard/multirom/";
+    private static final String DOWNLOAD_LOC = BACKUP_PATH;
+	public static final String TMP_BOOT_IMAGE_PATH = BACKUP_PATH+"/tmp_boot.img";
     private final String BOOT_IMG_PATH="/dev/mtd/mtd0";
     private int default_boot=0;
+    
     private String lastSelect="";
     
     private static final Device DEVICE[] =
@@ -96,18 +101,23 @@ public class Updater extends Activity
         m_updating = false;
         con = this;
         m_updated = false;
+        opt=getIntent().getIntExtra("tmp_boot_img", 99);
         
-        if (getIntent().getBooleanExtra("custom", false)){
+        if(opt!=UPD_DEFAULT_WAY)
+        	((Button)findViewById(R.id.reboot)).setVisibility(View.GONE);
+        
+        if (getIntent().getBooleanExtra("custom", false) || opt==UPD_SDCARD){
         	((Button)findViewById(R.id.update_button)).setVisibility(View.GONE);
         	setProgressBarIndeterminateVisibility(false);
-	        dialog();
-        }
-        else {
-        	
+        	if(opt==UPD_DEFAULT_WAY)
+        		dialog();
+        	else if(opt==UPD_SDCARD)
+        		TryUpdate();
+
+        }else {
         	setDevice();
 	        GetVersion(true);
-        }
-    }
+    }}
     
     @Override
     protected void onDestroy()
@@ -258,6 +268,7 @@ public class Updater extends Activity
         
         new Thread(new Runnable() {
             public void run() {
+            	if(opt!=0){
                 //Package
                 m_status.sendEmptyMessage(1);
                 if(!DownloadPackage())
@@ -265,9 +276,12 @@ public class Updater extends Activity
                     m_status.sendEmptyMessage(3);
                     return;
                 }
+                msg("Saved to "+DOWNLOAD_LOC + UPDATE_PACKAGE);
+            	}
                 //Decompress
                 m_status.sendEmptyMessage(4);
-                Decompress d = new Decompress(DOWNLOAD_LOC + UPDATE_PACKAGE, UPDATE_FOLDER); 
+                Decompress d = new Decompress(opt==UPD_SDCARD?Updater.this.getIntent().getStringExtra("path"):
+                		(DOWNLOAD_LOC + UPDATE_PACKAGE), UPDATE_FOLDER); 
                 if(!d.unzip())
                 {
                     m_status.sendEmptyMessage(16);
@@ -304,13 +318,32 @@ public class Updater extends Activity
                 MultiROMMgrActivity.runRootCommand("cp /tmp/ramdisk/init /init");
                 MultiROMMgrActivity.runRootCommand("touch /main_init");
                 MultiROMMgrActivity.runRootCommand("touch /preinit.rc");
-                MultiROMMgrActivity.runRootCommand("/tmp/dump_image boot /tmp/boot.img");
+                if(opt==UPD_DEFAULT_WAY)
+                	MultiROMMgrActivity.runRootCommand("/tmp/dump_image boot ");
+                else
+                	MultiROMMgrActivity.runRootCommand("cp "+TMP_BOOT_IMAGE_PATH+" /tmp/boot.img");
+                
                 MultiROMMgrActivity.runRootCommand("/tmp/unpackbootimg /tmp/boot.img /tmp/");
                 MultiROMMgrActivity.runRootCommand("/tmp/edit_ramdisk.sh");
                 MultiROMMgrActivity.runRootCommand("/tmp/mkbootimg.sh");
+                if(opt!=UPD_DEFAULT_WAY)
+                	MultiROMMgrActivity.runRootCommand("cp /tmp/newboot.img "+TMP_BOOT_IMAGE_PATH);
                 
-                res = MultiROMMgrActivity.runRootCommand(MultiROMMgrActivity.BASE + "flash_image boot /tmp/newboot.img");
-                if(res == null || !res.equals(""))
+                
+                
+                if(opt!=UPD_DEFAULT_WAY){
+                	CleanUp();
+                	ZipActivity.zip.appendBoot(); //in background.
+                	m_status.sendEmptyMessage(101); //choose boot loc.
+                	msg("File will be at "+ZipActivity.zip.outFileName);
+                	m_status.sendEmptyMessage(5);
+                	return;
+                }
+                
+                boolean suc=attempt(MultiROMMgrActivity.BASE + "flash_image boot "+
+                (opt!=UPD_DEFAULT_WAY?TMP_BOOT_IMAGE_PATH:"/tmp/newboot.img"));
+
+                if(!suc)
                 {
                     MultiROMMgrActivity.runRootCommand(MultiROMMgrActivity.BASE + "flash_image boot /tmp/boot.img");
                     CleanUp();
@@ -329,6 +362,7 @@ public class Updater extends Activity
                     m_status.sendEmptyMessage(5);
                     return;
                 }
+                
 
                 // Recovery
                 m_status.sendEmptyMessage(10);
@@ -376,7 +410,7 @@ public class Updater extends Activity
                 MultiROMMgrActivity.runRootCommand("umount /tmp");
                 MultiROMMgrActivity.runRootCommand("rm -r /tmp");
                 MultiROMMgrActivity.runRootCommand("mount -o remount,ro rootfs /");
-                MultiROMMgrActivity.runRootCommand("rm " + DOWNLOAD_LOC + UPDATE_PACKAGE);
+                //MultiROMMgrActivity.runRootCommand("rm " + DOWNLOAD_LOC + UPDATE_PACKAGE);
                 MultiROMMgrActivity.runRootCommand("rm -r " + UPDATE_FOLDER);
             }
     private boolean DownloadManifest()
@@ -507,7 +541,8 @@ public class Updater extends Activity
         {
             boolean off = true;
             switch(msg.what)
-            {
+            {       	
+            	
                 case 0:  SetStatus(getResources().getString(R.string.down_manifest)); off=false; break;
                 case 1:  SetStatus(getResources().getString(R.string.down_pack));     off=false; break;
                 case 4:  SetStatus(getResources().getString(R.string.decompress));    off=false; break;
@@ -532,11 +567,15 @@ public class Updater extends Activity
                 // Show versions
                 case 9:
                 {
+                	
                     String text = getResources().getString(R.string.current_version);
                     text += " " + MultiROMMgrActivity.getVersion(false) + "\n";
                     text += getResources().getString(R.string.newest_version);
                     text += " " + manifest_version + "\n";
-                    if(manifest_version.equals(MultiROMMgrActivity.getVersion(false)))
+                    if( opt==UPD_INTERNET){
+                    	off=false;
+                    	TryUpdate();
+                    }else if(manifest_version.equals(MultiROMMgrActivity.getVersion(false)))
                         text += getResources().getString(R.string.no_update);
                     else
                     {
@@ -595,7 +634,7 @@ public class Updater extends Activity
                 }
                 m_updating = false;
                 setProgressBarIndeterminateVisibility(false);
-                Btn(R.id.exit,true); Btn(R.id.reboot,true);
+                Btn(R.id.exit,true);Btn(R.id.reboot,true);
             }
         }
 
@@ -639,7 +678,7 @@ public class Updater extends Activity
     	     for(int i=0; i < files.length; i++)
     	     {
     	      
-    	      if(files[i].canRead() && !files[i].isDirectory())
+    	      if(files[i].canRead() && !files[i].isDirectory() && !files[i].getName().endsWith(".zip"))
     	           item.add(files[i].getName());
     	     }
 
@@ -719,7 +758,33 @@ public class Updater extends Activity
     		
     		dialog.show();
     }
-    
+	
+    boolean attempt(String cmd){
+		 boolean suc=false;
+		 Log.i("scr",cmd);
+		 System.gc();
+		 for (int i=1;i<=2;i++){
+
+			 msg("Attempt "+i+": ");
+			 String res=MultiROMMgrActivity.runRootCommand(cmd);
+			 Log.e("scr"+i, res);
+			 
+			 if (res==null || res=="")
+				  res="Success";
+			 else {
+				 if(res.length()>88)
+					 res=res.substring(0, 87)+"...";
+			 }
+			 msg(res);
+			 
+			
+			 if (res.equals("Success")){
+				 suc=true;
+				 break;
+				 }
+		 }
+		 return suc;
+	 }
    private void customFlash(final String path, final boolean backup){
 	   
 	   Btn(R.id.exit,false); Btn(R.id.reboot,false);
@@ -766,13 +831,13 @@ public class Updater extends Activity
                 /*
                 if(!backup){
                 	File file=new File(BACKUP_PATH+path);
-                    if(file.canRead() && file.length()==4456448)
+                    if(file.canRead())
                         suc=true;
-                    
+                    if(file.length()!=4456448);
                 }
-                	*/
+                	
                 
-                
+                */
             	  MultiROMMgrActivity.runRootCommand("chmod 777 " + MultiROMMgrActivity.BASE + "*_image");
 
                   suc=attempt(MultiROMMgrActivity.BASE +
@@ -784,14 +849,13 @@ public class Updater extends Activity
                   String res= MultiROMMgrActivity.runRootCommand("dd if=" +
                 		 (backup?BOOT_IMG_PATH+ " of=\""+BACKUP_PATH+path+"\"":
                 			 "\""+BACKUP_PATH+path+"\" of="+BOOT_IMG_PATH)+
-                		  " bs=4096");
+                		  " bs=8192");
                   
                   msg(res);
-                  msg("\""+BACKUP_PATH+path+"\" of="+BOOT_IMG_PATH+ " bs=4096");
                   suc=res.contains("4456448 bytes transferred");
                   
                 }
-                  */
+                  */ //
                   m_status.sendEmptyMessage(100); //release wakelock
                   
 
@@ -821,7 +885,7 @@ public class Updater extends Activity
    //buttons
    	public void rebootB(View v){
    		MultiROMMgrActivity.runRootCommand("sync");
-   		MultiROMMgrActivity.runRootCommand("reboot");
+   		MultiROMMgrActivity.runRootCommand("reboot"+ (opt!=UPD_DEFAULT_WAY?" recovery":""));
    	}
    	
    	public void exitB(View v){
@@ -859,8 +923,6 @@ public class Updater extends Activity
                                 continue;
                             
                             setting.put(split[0],split[1]);
-                            
-                             
                         }
                         
                         if(setting.get("default_boot")==null || setting.get("default_boot").equals("0"))
@@ -881,12 +943,22 @@ public class Updater extends Activity
     	   return;
        }
        
-       CharSequence[] options = { "Internal", "SDcard (main ROM)", "SDcard (Backup ROM)"};
-
+       ArrayList<String> options = new ArrayList<String>();
+       options.add("Internal");
+       options.add("SDcard (main ROM)");
+       
+       if(opt==UPD_DEFAULT_WAY)
+    	   options.add("SDcard (Backup ROM)");
+       
+       CharSequence[] opts=new String[options.size()];
+       options.toArray(opts);
+       
+       if(default_boot>=options.size())
+    	   default_boot=-1;
 
 	new AlertDialog.Builder( this )
        .setTitle( "Choose default boot location" )
-       .setSingleChoiceItems(options, default_boot, new DialogInterface.OnClickListener(){
+       .setSingleChoiceItems(opts, default_boot, new DialogInterface.OnClickListener(){
        
 		@Override
 		public void onClick(DialogInterface d, int choice) {
@@ -897,7 +969,7 @@ public class Updater extends Activity
 				startActivityForResult(ii, BMgrConf.REQ_ROM_NAME);
 			}else if(choice!=default_boot){
 			
-				Updater.this.write_settings(choice,null);
+				write_settings(choice,null);
 			}
 	            d.dismiss();
 		}
@@ -906,8 +978,8 @@ public class Updater extends Activity
        .setNegativeButton("Don't Change", new DialogInterface.OnClickListener(){
 		@Override
 		public void onClick(DialogInterface dialog, int which) {}
-       }
-    	 )
+       })
+    	
        .show();
 
     }
@@ -954,7 +1026,7 @@ public class Updater extends Activity
         	if(resultCode == RESULT_OK)
         		write_settings(1,data.getStringExtra("name"));
         	else
-        		chooseBootLocation();
+        		m_status.sendEmptyMessage(101);
         }
         
     }    

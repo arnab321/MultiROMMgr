@@ -17,10 +17,11 @@ import android.widget.TextView;
 
 public class BackupsActivity extends BackupsActivityBase
 {
+	int lastPos=0;
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
-        m_active_in_list = false;
+        m_active_in_list = true;
         super.onCreate(savedInstanceState);
         getListView().setOnItemLongClickListener(m_longClick);
     }
@@ -71,6 +72,9 @@ public class BackupsActivity extends BackupsActivityBase
             return;
         }
 
+        if(position==0)
+        	return;
+        
         String name = (String) ((TextView)v.findViewById(R.id.title)).getText();
 
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
@@ -78,15 +82,15 @@ public class BackupsActivity extends BackupsActivityBase
         ((TextView)layout.findViewById(R.id.text)).setText(name);
         ((TextView)layout.findViewById(R.id.text_orig)).setText(name);
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setView(layout);
-        builder.setNeutralButton(getResources().getString(R.string.rename), new DialogInterface.OnClickListener()
+        new AlertDialog.Builder(this)
+        .setView(layout)
+        .setNeutralButton(getResources().getString(R.string.rename), new DialogInterface.OnClickListener()
         {
-            public void onClick(DialogInterface arg0, int arg1)
+            public void onClick(final DialogInterface d, int arg1)
             {
-                String name_from = ((TextView)m_renameDial.findViewById(R.id.text_orig)).getText().toString();
-                String name = ((TextView)m_renameDial.findViewById(R.id.text)).getText().toString();
-                m_renameDial = null;
+                String name_from = ((TextView)((AlertDialog)d).findViewById(R.id.text_orig)).getText().toString();
+                String name = ((TextView)((AlertDialog)d).findViewById(R.id.text)).getText().toString();
+                
                 if(name.equals("") || !name.matches("^[a-zA-Z0-9-_#|]+$"))
                 {
                     ShowToast(getResources().getString(R.string.wrong_name));
@@ -96,28 +100,24 @@ public class BackupsActivity extends BackupsActivityBase
                 RenameThread r = new RenameThread(name_from, name);
                 r.start();
             }
-        });
-        builder.setTitle(getResources().getString(R.string.rename_back));
-        builder.setCancelable(true);
-       
-        m_renameDial = builder.create();
-        m_renameDial.show();
+        })
+        .setTitle(getResources().getString(R.string.rename_back))
+        .setCancelable(true)
+        .show();
     }
     
     private final OnItemLongClickListener m_longClick = new OnItemLongClickListener()
     {
         @Override
-        public boolean onItemLongClick(AdapterView<?> arg0, View v,
-                int pos, long id) {
-            
+        public boolean onItemLongClick(AdapterView<?> arg0, View v, int pos, long id) {
+            lastPos=pos;
             m_selectedBackup = ((TextView)v.findViewById(R.id.title)).getText().toString();
-            final CharSequence[] items = getResources().getStringArray(R.array.backup_options);
-            
-            AlertDialog.Builder builder = new AlertDialog.Builder(con);
-            builder.setTitle(getResources().getString(R.string.select));
-            builder.setItems(items, m_onOptionsClick);
-            AlertDialog alert = builder.create();
-            alert.show();
+            final CharSequence[] items =// getResources().getStringArray(R.array.backup_options);
+            	{pos==0?"Move to backup":"Switch with active", "Erase"};
+            new AlertDialog.Builder(con).
+            setTitle(R.string.select).
+            setItems(items, m_onOptionsClick).
+            show();
             return false;
         }
         
@@ -130,6 +130,9 @@ public class BackupsActivity extends BackupsActivityBase
             switch(which)
             {
                 case 0:
+                	if(lastPos==0)
+                		MoveActToBack();
+                	else
                     SwitchWithActive();
                     break;
                 case 1:
@@ -161,7 +164,9 @@ public class BackupsActivity extends BackupsActivityBase
         ShowLoading(getResources().getString(R.string.working));
         new Thread(new Runnable() {
             public void run() {
-                String res = MultiROMMgrActivity.runRootCommand("rm -r " + m_folder_backups + m_selectedBackup);
+                String res = MultiROMMgrActivity.runRootCommand("rm -r " + 
+            (lastPos==0? m_folder_main:
+            (m_folder_backups + m_selectedBackup)) );
                 m_backLoading.sendMessage(m_backLoading.obtainMessage(3, res != null && res.equals("") ? 1 : 0, 0));
             }
         }).start();
@@ -230,5 +235,5 @@ public class BackupsActivity extends BackupsActivityBase
         }
     }
 
-    private AlertDialog m_renameDial;
+    //private AlertDialog m_renameDial;
 }
