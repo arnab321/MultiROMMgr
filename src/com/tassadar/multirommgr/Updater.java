@@ -49,7 +49,7 @@ import android.widget.Toast;
 public class Updater extends Activity
 {
     private static final String LINK_APP_VER = "http://dl.dropbox.com/u/54372958/mgr_ver.txt";
-    private static final String UPDATE_PACKAGE = "multirom.zip";
+    static final String UPDATE_PACKAGE = "multirom.zip";
     private static final String FILE_VERSIONS = MultiROMMgrActivity.BASE + "/multirom_ver.txt";
     //private static final String DOWNLOAD_LOC = MultiROMMgrActivity.BASE;
     private static final String UPDATE_FOLDER = MultiROMMgrActivity.BASE + "multirom/";
@@ -60,7 +60,7 @@ public class Updater extends Activity
     UPD_DEFAULT_WAY=99,UPD_SDCARD=0,UPD_INTERNET=1;
     private int opt=UPD_DEFAULT_WAY; // 0=from sdcard, 1= internet, 99=default
     public final static String BACKUP_PATH="/sdcard/multirom/";
-    private static final String DOWNLOAD_LOC = BACKUP_PATH;
+    static final String DOWNLOAD_LOC = BACKUP_PATH;
 	public static final String TMP_BOOT_IMAGE_PATH = BACKUP_PATH+"/tmp_boot.img";
     private final String BOOT_IMG_PATH="/dev/mtd/mtd0";
     private int default_boot=0;

@@ -11,6 +11,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.Button;
@@ -41,6 +43,8 @@ public class Zip extends AsyncTask<String, String, Integer> {
 	    ZipOutputStream output;
 		ProgressBar p;
 		Button save;
+		
+		static Activity act;
 		
 		final int HIDE_SAVE=1;
 		final int SHOW_SAVE=2;
@@ -237,25 +241,48 @@ public class Zip extends AsyncTask<String, String, Integer> {
     	ZipEntry upd = new ZipEntry(updaterScript);
     	output.putNextEntry(upd);
         
-/* header */ output.write((ZipActivity.c.getString(R.string.mod_unmount_script)+ZipActivity.c.getString(R.string.mod_header_script)).getBytes());
+/* header */ output.write((act.getString(R.string.mod_unmount_script)+act.getString(R.string.mod_header_script)).getBytes());
 /* script */ output.write(edit.getText().toString().getBytes());
-/* footer */ output.write(ZipActivity.c.getString(R.string.mod_unmount_script).getBytes());
+/* footer */ output.write(act.getString(R.string.mod_unmount_script).getBytes());
     	output.closeEntry();
-    	if(bootImageFound)
+    	if(bootImageFound){
     		publishProgress("msg","...");
+    		
+    		boolean multiromFileExists=false;
+    		String path=Updater.DOWNLOAD_LOC + Updater.UPDATE_PACKAGE;
+    		File f=new File(path);  ZipFile z=null;
+    		
+    		
+    		if(f.exists()){ //check if valid zip file
+    			try {
+    		       z = new ZipFile(path);
+    		       multiromFileExists=true;
+    		    } catch (Exception e) {
+    		    } finally {
+    		        try {
+    		                z.close(); z = null;
+    		          }
+    		         catch (Exception e) {}
+    		    }
+    		}
+    		
+    	if(multiromFileExists)
+    				act.startActivity(new Intent(act, Updater.class).putExtra("tmp_boot_img", 0).putExtra("path", path));
+    		
     	else
-    		publishProgress("msg","Done!");
+    			publishProgress("butn","Embed multirom into boot.img");
     	
+    	} else {
+    		publishProgress("msg","Done!");
+    		publishProgress("edit2","\nSaved to "+outFileName);
+    	
+    	}
     	}catch(IOException e){
     		publishProgress("msg","Error: "+e.toString());
     	}
-
-    	if(bootImageFound){
-    		publishProgress("butn","Embed multirom into boot.img");
-    	}else{
-    	close();
-    	publishProgress("edit2","\nSaved to "+outFileName);
-    	
+    	finally{
+    		if(!bootImageFound)
+    			close();
     	}
     	doneUpdScr=true;
 	}
@@ -265,7 +292,7 @@ public class Zip extends AsyncTask<String, String, Integer> {
 			close();
 			File file=new File(outFileName);
 			file.delete();
-			Toast.makeText(ZipActivity.c, "Cancelled.", Toast.LENGTH_LONG).show();
+			Toast.makeText(act, "Cancelled.", Toast.LENGTH_LONG).show();
 		}
 		
 		@Override

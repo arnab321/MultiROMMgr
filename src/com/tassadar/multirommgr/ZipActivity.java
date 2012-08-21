@@ -17,7 +17,6 @@ import android.widget.TextView;
 
 public class ZipActivity  extends Activity {
 	static Zip zip;
-	static Context c;
 	static boolean mod=false;
 	Intent i;
     @Override
@@ -25,12 +24,11 @@ public class ZipActivity  extends Activity {
     {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        c=getApplicationContext();
+        Zip.act=this;
         
        if(!mod && getIntent().getStringExtra("path")!=null){
         	
-       setContentView(R.layout.zip);
-        
+       setContentView(R.layout.zip);       
        zip= new Zip();
        zip.p=(ProgressBar) findViewById(R.id.zip_progress);
        zip.edit=(EditText) findViewById(R.id.updater_script);
